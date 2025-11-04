@@ -1,0 +1,65 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/yourusername/python-flask-ci-demo.git'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                bat '''
+                python -m venv venv
+                call venv\\Scripts\\activate
+                pip install --upgrade pip
+                pip install -r requirements.txt
+                '''
+            }
+        }
+
+        stage('Test') {
+            steps {
+                bat '''
+                call venv\\Scripts\\activate
+                pytest --junitxml=test-results.xml
+                '''
+            }
+            post {
+                always {
+                    junit 'test-results.xml'
+                }
+            }
+        }
+
+        stage('Package') {
+            steps {
+                bat '''
+                call venv\\Scripts\\activate
+                python setup.py sdist
+                '''
+                archiveArtifacts artifacts: 'dist/*.tar.gz', fingerprint: true
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                bat '''
+                echo Deploying application...
+                call venv\\Scripts\\activate
+                python app/main.py
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '✅ Build and Deployment Successful!'
+        }
+        failure {
+            echo '❌ Build Failed. Check logs.'
+        }
+    }
+}
